@@ -4,7 +4,10 @@ import ballerina/log;
 
 configurable string hrEndpoint = ?;
 
-
+  type Flag record {|
+    string flag;
+    |};
+    
 # A service representing a network-accessible API
 # bound to port `9090`.
 service / on new http:Listener(9090) {
@@ -14,7 +17,7 @@ service / on new http:Listener(9090) {
     # + return - string name with hello message or error
     resource function post country(http:Request req) returns http:Response|http:ClientError {
         http:Client clientEP = check new (hrEndpoint);
-        http:Response|http:ClientError response = check clientEP->forward("",req);
+        http:Response|http:ClientError response = check clientEP->forward("/countryFlag",req);
         
         if (response is http:Response) {
             return response;
@@ -25,6 +28,37 @@ service / on new http:Listener(9090) {
             res.setPayload(response.message());
             return res;
         }
+     
+    }
+
+
+    resource function get country/[string name]/flag() returns Flag|error? {
+        http:Client clientEP = check new (hrEndpoint);
+        json isoCode = check clientEP->/CountryISOCode.post({"sCountryName": name});
+        log:printInfo("ISODE-"+isoCode.toString()+"-");
+        json flag = check clientEP->/CountryFlag.post({"sCountryISOCode": isoCode});
+        Flag result= {flag : check flag};
+        return result;
+
+     
+    }
+
+        resource function get currency/[string code]/flags() returns json[]|error? {
+        http:Client clientEP = check new (hrEndpoint);
+        json[] countrys = check clientEP->/CountriesUsingCurrency.post({"sISOCurrencyCode": code});
+
+        json[] result= [];
+        foreach var country in countrys {
+            string isoCode = check country.sISOCode;
+            string countryName = check country.sName;
+            json flag = check clientEP->/CountryFlag.post({"sCountryISOCode": isoCode});   
+            result.push({flag : flag,
+                        country:countryName,
+                        countrCode:isoCode});
+        }
+
+        return result;
+
      
     }
 }
